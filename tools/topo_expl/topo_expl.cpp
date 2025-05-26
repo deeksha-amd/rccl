@@ -47,6 +47,7 @@ THE SOFTWARE.
 #include "utils.h"
 #include "topo.h"
 #include "graph.h"
+#include "rccl_common.h"
 
 NodeModel *node_model;
 extern ncclNet_t* ncclNet;
@@ -255,7 +256,6 @@ int main(int argc,char* argv[])
     assert(node_model!=0);
     initTransportsRank_3(&comm[i], allGather3Data, treeGraph[i], ringGraph[i], collNetGraph[i], nvlsGraph[i]);
   }
-
   for (uint64_t len = 8; len <= 4294967296L; len *= 2) {
     struct ncclInfo info;
     float minTime = 3600000000.0;
@@ -268,8 +268,7 @@ int main(int argc,char* argv[])
     for (int a=0; a<nAlgos; a++) {
       for (int p=0; p<NCCL_NUM_PROTOCOLS; p++) {
         float time;
-        bool backup;
-        NCCLCHECK(ncclTopoGetAlgoTime(info.comm, info.coll, a, p, len, 1, &time, &backup));
+        NCCLCHECK(ncclTopoGetAlgoTime(info.comm, info.coll, a, p, len, 1, &time));
         if (time >= 0 && time < minTime) {
           algorithm = a;
           protocol = p;
@@ -283,6 +282,35 @@ int main(int argc,char* argv[])
     }
     INFO(NCCL_TUNING, "%10ld %s %s time %f", len, ncclAlgoStr[algorithm], ncclProtoStr[protocol], minTime);
   }
+
+  // Arrays to store function types for ncclFuncAllReduce, ReduceScatter, and AllGather
+  std::vector<ncclFunc_t> ncclFuncTypes = {
+    ncclFuncAllReduce,
+    ncclFuncReduceScatter,
+    ncclFuncAllGather
+  };
+
+  std::cout << "Running fp32 production choices for algorithm/protocol/maxChannels" << std::endl;
+  // RCCL tuning results
+  printf("| %-15s | %-15s | %-15s | %-10s | %-10s | %-12s |\n", "Max Size(B)", "Count", "Collective", "Algorithm", "Protocol", "Max Channels");
+  printf("|-----------------|-----------------|-----------------|------------|------------|--------------|\n");
+  for(int i = 0; i < ncclFuncTypes.size(); ++i) {
+    for (uint64_t count = 8; count <= 1073741824L; count *= 2) { // Up to 1 gigabyte
+      int algo, proto, nChannels;
+      NCCLCHECK(rcclGetAlgoInfo(&comm[0], ncclFuncTypes[i], count, ncclFloat32 , 0, 0, 1, &algo, &proto, &nChannels));
+      uint64_t maxCount;
+      NCCLCHECK(rcclFuncMaxSendRecvCount(ncclFuncTypes[i], comm[0].nRanks, count, maxCount));
+      printf("| %-15ld | %-15ld | %-15s | %-10s | %-10s | %-12d |\n",
+        maxCount * sizeof(float),
+        count,
+        ncclFuncStr[ncclFuncTypes[i]],
+        ncclAlgoStr[algo],
+        ncclProtoStr[proto],
+        nChannels);
+    }
+  }
+
+
 
   for (int i = 0; i < nranks; i++) {
     free(comm[i].connectSend);

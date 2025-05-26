@@ -49,8 +49,7 @@ inline uint64_t clockNano() {
   return uint64_t(ts.tv_sec)*1000*1000*1000 + ts.tv_nsec;
 }
 
-/* get any bytes of random data from /dev/urandom, return 0 if it succeeds; else
- * return -1 */
+/* get any bytes of random data from /dev/urandom, return ncclSuccess (0) if it succeeds. */
 inline ncclResult_t getRandomData(void* buffer, size_t bytes) {
   ncclResult_t ret = ncclSuccess;
   if (bytes > 0) {
@@ -546,4 +545,25 @@ T* ncclIntruQueueMpscAbandon(ncclIntruQueueMpsc<T,next>* me) {
     return head;
   }
 }
+/**
+ * @brief function to get page size of the system
+ */
+size_t get_sc_page_size(void);
+
+/**
+ * @brief function to get system's page size aligned memory address and buffersize 
+ *
+ * Given a pointer `ptr` to a buffer of size `bufsize`, this function computes:
+ *   1. A new pointer `aligned_ptr` which points to the start of the page-aligned memory region that includes `ptr`.
+ *   2. A new size `aligned_size` that is the minimum number of bytes (aligned to page size) needed to cover the original buffer from `aligned_ptr`.
+ *
+ * This is useful, for example, when performing operations such as memory mapping or advising memory usage (e.g., with `mmap`, `madvise`, `mlock`, etc.), which often require page-aligned memory ranges.
+ * This function doesn't dereferece the input pointer
+ *
+ * @param[in]  ptr           Pointer to the start of the original memory buffer.
+ * @param[in]  bufsize       Size (in bytes) of the original buffer starting at `ptr`.
+ * @param[out] aligned_ptr   Pointer to a variable that will be set to the aligned base address.
+ * @param[out] aligned_size  Pointer to a variable that will be set to the aligned size.
+ */
+void get_aligned_ptr_and_size(const void *ptr, const size_t bufsize, void **aligned_ptr, size_t *aligned_size);
 #endif

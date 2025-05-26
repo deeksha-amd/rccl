@@ -27,6 +27,7 @@ option(BUILD_TESTS                             "Build unit test programs"       
 option(COLLTRACE                               "Collective Trace Option"                       ON)
 option(ENABLE_MSCCL_KERNEL                     "Enable MSCCL while compiling"                  ON)
 option(ENABLE_MSCCLPP                          "Enable MSCCL++"                                ON)
+option(ENABLE_MSCCLPP_CLIP                     "Enable MSCCL++"                                OFF)
 option(ENABLE_IFC                              "Enable indirect function call"                 OFF)
 option(INSTALL_DEPENDENCIES                    "Force install dependencies"                    OFF)
 option(ROCTX                                   "Enable ROCTX"                                  ON)
@@ -419,11 +420,11 @@ set(SRC_FILES
   src/group.cc
   src/init.cc
   src/init_nvtx.cc
+  src/mnnvl.cc
   src/net.cc
   src/msccl.cc
   src/proxy.cc
   src/rccl_wrap.cc
-  src/register.cc
   src/transport.cc
   src/device/all_gather.h
   src/device/all_reduce.h
@@ -486,6 +487,7 @@ set(SRC_FILES
   src/include/ibvwrap.h
   src/include/info.h
   src/include/ipcsocket.h
+  src/include/mnnvl.h
   src/include/nccl_common.h
   src/include/nccl_net.h
   src/include/nccl_profiler.h
@@ -494,11 +496,13 @@ set(SRC_FILES
   src/include/net.h
   src/include/nvmlwrap.h
   src/include/nvtx.h
+  src/include/nvtx_payload_schemas.h
   src/include/nvtx_stub.h
   src/include/p2p.h
   src/include/param.h
   src/include/profiler.h
   src/include/proxy.h
+  src/include/ras.h
   src/include/rccl_common.h
   src/include/rccl_vars.h
   src/include/register.h
@@ -589,6 +593,16 @@ set(SRC_FILES
   src/misc/msccl/msccl_parser.cc
   src/misc/msccl/msccl_setup.cc
   src/misc/msccl/msccl_status.cc
+  src/ras/client.cc
+  src/ras/client_support.cc
+  src/ras/collectives.cc
+  src/ras/peers.cc
+  src/ras/ras.cc
+  src/ras/ras_internal.h
+  src/ras/rasnet.cc
+  src/register/coll_reg.cc
+  src/register/register.cc
+  src/register/sendrecv_reg.cc
   src/transport/coll_net.cc
   src/transport/generic.cc
   src/transport/net.cc
@@ -805,7 +819,18 @@ endif()
 if (HAVE_PARALLEL_JOBS)
   target_compile_options(rccl PRIVATE -parallel-jobs=12)
 endif()
-target_compile_options(rccl PRIVATE -Werror=uninitialized -Werror=sometimes-uninitialized)
+
+if (ROCM_VERSION VERSION_GREATER_EQUAL "60200") 
+  target_compile_options(rccl PRIVATE --offload-compress)    # Compress GPU code at compile time.
+  target_link_libraries(rccl PRIVATE --offload-compress)     # Compress GPU code at link time.
+  message(STATUS "--offload-compress enabled - ROCm version >= 6.2.0")
+else()
+  message(STATUS "--offload-compress disabled - ROCm version < 6.2.0")
+endif()
+
+target_compile_options(rccl PRIVATE -Werror=uninitialized)
+target_compile_options(rccl PRIVATE -Werror=sometimes-uninitialized)
+target_compile_options(rccl PRIVATE -Wall)
 target_compile_options(rccl PRIVATE -Wno-format-nonliteral)
 target_compile_options(rccl PRIVATE -fgpu-rdc)               # Generate relocatable device code (required for extern __shared__)
 target_compile_options(rccl PRIVATE -fvisibility=hidden)     # Set symbol visibility to hidden by default

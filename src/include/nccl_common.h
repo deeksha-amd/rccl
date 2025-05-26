@@ -32,7 +32,8 @@ typedef enum {
   NCCL_BOOTSTRAP = 0x1000,
   NCCL_REG = 0x2000,
   NCCL_PROFILE = 0x4000,
-  NCCL_VERBS = 0x8000,
+  NCCL_RAS = 0x8000,
+  NCCL_VERBS = 0x10000,
   NCCL_ALL = ~0
 } ncclDebugLogSubSys;
 
@@ -73,10 +74,9 @@ typedef enum {
 
 #define NCCL_ALGO_PROTO_IGNORE -1.0
 
-#define NCCL_NUM_UNROLLS 3 // 1/2/4
-#define NCCL_UNROLL_1 0
-#define NCCL_UNROLL_2 1
-#define NCCL_UNROLL_4 2
+#define NCCL_NUM_UNROLLS 2 // 2/4
+#define NCCL_UNROLL_2 0
+#define NCCL_UNROLL_4 1
 
 #define NCCL_NUM_FLOATS 6 // half/float/double/rccl_bfloat16/rccl_float8/rccl_bfloat8
 #endif
